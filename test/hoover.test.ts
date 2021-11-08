@@ -22,5 +22,28 @@ describe('hoover', () => {
 
   })
 
+
+  test('double-escape', () => {
+    const j = Jsonic.make().use(Hoover, {
+      block: {
+        "'": {
+          open: "'",
+          close: "'",
+          indent: false,
+          trim: false,
+          doubleEscape: true,
+          lineReplace: ' ',
+        }
+      }
+    })
+
+    expect(j(`'a'`)).toEqual('a')
+    expect(j(`'a\nb'`)).toEqual('a b')
+    expect(j(`'a''b'`)).toEqual('a\'b')
+    expect(j(`'a\\nb'`)).toEqual('a\\nb')
+
+  })
+
+
 })
 

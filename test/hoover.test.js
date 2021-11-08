@@ -14,5 +14,23 @@ describe('hoover', () => {
         expect(j(`  '''\na\n  '''`)).toEqual('a');
         expect(j(`  '''\n   a\n  '''`)).toEqual(' a');
     });
+    test('double-escape', () => {
+        const j = jsonic_1.Jsonic.make().use(hoover_1.Hoover, {
+            block: {
+                "'": {
+                    open: "'",
+                    close: "'",
+                    indent: false,
+                    trim: false,
+                    doubleEscape: true,
+                    lineReplace: ' ',
+                }
+            }
+        });
+        expect(j(`'a'`)).toEqual('a');
+        expect(j(`'a\nb'`)).toEqual('a b');
+        expect(j(`'a''b'`)).toEqual('a\'b');
+        expect(j(`'a\\nb'`)).toEqual('a\\nb');
+    });
 });
 //# sourceMappingURL=hoover.test.js.map

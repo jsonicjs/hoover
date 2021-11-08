@@ -21,8 +21,12 @@ import {
 type HooverOptions = {
   block: {
     [open: string]: {
+      open: string
       close: string
       indent: boolean
+      trim: boolean
+      doubleEscape: boolean
+      lineReplace: null | string
     }
   }
 }
@@ -45,9 +49,10 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
     ) : undefined
 
     const closermap = omap(blockmap, ([open, block]: [string, any]) =>
-      [open, regexp('s', '(.*?)', escre(block.close),
-        // TODO: double esc optional
-        // '(?!',escre(block.close),')',
+      [open, regexp('s', '(.*?)',
+        block.doubleEscape ? '(?<!' + escre(block.close) + ')' : '',
+        escre(block.close),
+        block.doubleEscape ? '(?!' + escre(block.close) + ')' : '',
       )])
 
     console.log('AAA', opener, closermap)
@@ -75,10 +80,22 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
         if (closing) {
           val = closing[1]
           src = fwd.substring(0, block.open.length + val.length + block.close.length)
-          console.log('CCC', closing, pnt, 'VAL<' + val + '>', 'SRC<' + src + '>')
+
+          if (block.doubleEscape) {
+            val = val.replace(
+              regexp('g', escre(block.close), escre(block.close)), block.close)
+          }
+
+          if (null != block.lineReplace) {
+            val = val.replace(/\r?\n/g, block.lineReplace)
+          }
+
+          console.log('CCC', closing, pnt, 'VAL<' + val + '>', 'SRC<' + src + '>', 'LR[' + block.lineReplace + ']')
 
         }
       }
+
+      // TODO: slurp to end (whatever end is)
 
 
       // if ('FOO' === fwd.substring(0, 3)) {
@@ -197,6 +214,8 @@ Hoover.defaults = ({
       close: "'''",
       indent: true,
       trim: true,
+      doubleEscape: false,
+      lineReplace: null,
     },
 
     // TODO: FOR TEST

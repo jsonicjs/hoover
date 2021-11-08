@@ -10,7 +10,7 @@ const Hoover = (jsonic, options) => {
         const blockmap = options.block || {};
         const blockopeners = keys(blockmap);
         const opener = 0 < blockopeners.length ? regexp('', '^(', keys(options.block).map(escre).join('|'), ')') : undefined;
-        const closermap = omap(blockmap, ([open, block]) => [open, regexp('s', '(.*?)', escre(block.close))]);
+        const closermap = omap(blockmap, ([open, block]) => [open, regexp('s', '(.*?)', block.doubleEscape ? '(?<!' + escre(block.close) + ')' : '', escre(block.close), block.doubleEscape ? '(?!' + escre(block.close) + ')' : '')]);
         console.log('AAA', opener, closermap);
         return function hooverMatcher(lex) {
             console.log('QQQ');
@@ -30,9 +30,16 @@ const Hoover = (jsonic, options) => {
                 if (closing) {
                     val = closing[1];
                     src = fwd.substring(0, block.open.length + val.length + block.close.length);
-                    console.log('CCC', closing, pnt, 'VAL<' + val + '>', 'SRC<' + src + '>');
+                    if (block.doubleEscape) {
+                        val = val.replace(regexp('g', escre(block.close), escre(block.close)), block.close);
+                    }
+                    if (null != block.lineReplace) {
+                        val = val.replace(/\r?\n/g, block.lineReplace);
+                    }
+                    console.log('CCC', closing, pnt, 'VAL<' + val + '>', 'SRC<' + src + '>', 'LR[' + block.lineReplace + ']');
                 }
             }
+            // TODO: slurp to end (whatever end is)
             // if ('FOO' === fwd.substring(0, 3)) {
             if (undefined !== val) {
                 if (block) {
@@ -121,6 +128,8 @@ Hoover.defaults = {
             close: "'''",
             indent: true,
             trim: true,
+            doubleEscape: false,
+            lineReplace: null,
         },
         // TODO: FOR TEST
         // '<<': { close: '>>', indent: false }
