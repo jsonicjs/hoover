@@ -3,6 +3,7 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "module": "commonjs",
+    "moduleResolution": "nodenext",
     "noEmitOnError": true,
     "noImplicitAny": true,
     "resolveJsonModule": true,
@@ -11,6 +12,7 @@
     "target": "ES2019"
   },
   "exclude": [
+    "dist",
     "node_modules"
   ]
 }

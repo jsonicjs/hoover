@@ -1,5 +1,5 @@
-import { Plugin } from 'jsonic';
-declare type HooverOptions = {
+import { Plugin, Lex } from '@jsonic/jsonic-next';
+type HooverOptions = {
     block: {
         [open: string]: {
             open: string;
@@ -12,5 +12,9 @@ declare type HooverOptions = {
     };
 };
 declare const Hoover: Plugin;
-export { Hoover, };
+declare function parseToEnd(lex: Lex, spec: any): {
+    done: boolean;
+    val: string;
+};
+export { parseToEnd, Hoover, };
 export type { HooverOptions, };

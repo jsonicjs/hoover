@@ -1,9 +1,7 @@
 "use strict";
-/* Copyright (c) 2021 Richard Rodger, MIT License */
+/* Copyright (c) 2021-2023 Richard Rodger, MIT License */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Hoover = void 0;
-// TODO: line continuation ("\" at end) should be a feature of standard JSONIC strings
-const jsonic_1 = require("jsonic");
+exports.Hoover = exports.parseToEnd = void 0;
 const Hoover = (jsonic, options) => {
     const { keys, omap, regexp, escre } = jsonic.util;
     let makeHooverMatcher = (_cfg, _opts) => {
@@ -110,16 +108,93 @@ const Hoover = (jsonic, options) => {
             return undefined;
         };
     };
-    let lexers = jsonic.options.lex.match;
-    lexers.splice(lexers.indexOf(jsonic_1.makeStringMatcher), 0, makeHooverMatcher);
+    // let lexers = (jsonic.options.lex as any).match
+    // lexers.splice(lexers.indexOf(makeStringMatcher), 0, makeHooverMatcher)
     jsonic.options({
         lex: {
-            match: lexers
+            match: {
+                hoover: { order: 5.5e6, make: makeHooverMatcher }
+            }
         }
     });
-    console.log('LEXERS', jsonic.options.lex);
 };
 exports.Hoover = Hoover;
+function parseToEnd(lex, spec) {
+    let valc = [];
+    let pnt = lex.pnt;
+    let src = lex.src;
+    let endchars = spec.endchars;
+    let endseqs = spec.endseqs;
+    let sI = pnt.sI; // Current point in src
+    let rI = pnt.rI; // Current row
+    let cI = pnt.cI; // Current column
+    let done = false;
+    let c = '';
+    let end = 0;
+    let m;
+    top: do {
+        c = src[sI];
+        // Check for end
+        if (-1 < (end = endchars.indexOf(c))) {
+            let endseqlist = endseqs[end];
+            endseqlist = Array.isArray(endseqlist) ? endseqlist : [endseqlist];
+            let pI = sI;
+            let endseq;
+            endseq: for (let esI = 0; esI < endseqlist.length; esI++) {
+                endseq = endseqlist[esI];
+                let tail = endseq && endseq.tail$ || endseq;
+                if (undefined === tail) {
+                    done = true;
+                    break endseq;
+                }
+                else if ('string' === typeof tail &&
+                    tail === src.substring(sI + 1, sI + 1 + endseq.length)) {
+                    pI = 1 + endseq.length;
+                    done = true;
+                    break endseq;
+                }
+                // regexp
+                else if (tail.exec && (m = tail.exec(src.substring(sI)))) {
+                    pI = 1 + m[0].length;
+                    done = true;
+                    break endseq;
+                }
+            }
+            if (done) {
+                if (endseq && false !== endseq.consume$) {
+                    let esI = sI;
+                    let endI = pI;
+                    for (; esI < endI; esI++) {
+                        sI++;
+                        cI++;
+                        if ('\n' === src[esI]) {
+                            rI++;
+                            cI = 0;
+                        }
+                    }
+                }
+                break top;
+            }
+        }
+        valc.push(c);
+        sI++;
+        cI++;
+        if ('\n' === c) {
+            rI++;
+            cI = 0;
+        }
+    } while (sI <= src.length);
+    if (done) {
+        pnt.sI = sI;
+        pnt.rI = rI;
+        pnt.cI = cI;
+    }
+    return {
+        done,
+        val: valc.join(''),
+    };
+}
+exports.parseToEnd = parseToEnd;
 Hoover.defaults = {
     block: {
         // TODO: normalize with defaults

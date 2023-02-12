@@ -1,7 +1,7 @@
 /* Copyright (c) 2021 Richard Rodger and other contributors, MIT License */
 
 
-import { Jsonic, Rule } from 'jsonic'
+import { Jsonic, Rule } from '@jsonic/jsonic-next'
 import { Hoover } from '../hoover'
 
 
