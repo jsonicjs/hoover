@@ -1,18 +1,11 @@
-import { Plugin, Lex } from '@jsonic/jsonic-next';
+import { Plugin, Lex, Point } from '@jsonic/jsonic-next';
 type HooverOptions = {
     block: {
-        [open: string]: {
-            open: string;
-            close: string;
-            indent: boolean;
-            trim: boolean;
-            doubleEscape: boolean;
-            lineReplace: null | string;
-        };
+        [name: string]: any;
     };
 };
 declare const Hoover: Plugin;
-declare function parseToEnd(lex: Lex, spec: any): {
+declare function parseToEnd(lex: Lex, pnt: Point, spec: any): {
     done: boolean;
     val: string;
 };

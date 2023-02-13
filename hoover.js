@@ -2,179 +2,160 @@
 /* Copyright (c) 2021-2023 Richard Rodger, MIT License */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Hoover = exports.parseToEnd = void 0;
+// TODO: line continuation ("\" at end) should be a feature of standard JSONIC strings
+const jsonic_next_1 = require("@jsonic/jsonic-next");
 const Hoover = (jsonic, options) => {
-    const { keys, omap, regexp, escre } = jsonic.util;
+    const { entries } = jsonic.util;
     let makeHooverMatcher = (_cfg, _opts) => {
-        const blockmap = options.block || {};
-        const blockopeners = keys(blockmap);
-        const opener = 0 < blockopeners.length ? regexp('', '^(', keys(options.block).map(escre).join('|'), ')') : undefined;
-        const closermap = omap(blockmap, ([open, block]) => [open, regexp('s', '(.*?)', block.doubleEscape ? '(?<!' + escre(block.close) + ')' : '', escre(block.close), block.doubleEscape ? '(?!' + escre(block.close) + ')' : '')]);
-        console.log('AAA', opener, closermap);
+        let blocks = entries(options.block).map((entry) => ({
+            name: entry[0],
+            ...entry[1]
+        }));
         return function hooverMatcher(lex) {
-            console.log('QQQ');
-            let pnt = lex.pnt;
-            let fwd = lex.src.substring(pnt.sI);
-            let val = undefined;
-            let src = undefined;
-            let opening = opener ? fwd.match(opener) : undefined;
-            let block;
-            let indent = 0;
-            if (opening) {
-                block = blockmap[opening[1]];
-                console.log('BBB', opening, block);
-            }
-            if (block) {
-                let closing = fwd.substring(block.open.length).match(closermap[block.open]);
-                if (closing) {
-                    val = closing[1];
-                    src = fwd.substring(0, block.open.length + val.length + block.close.length);
-                    if (block.doubleEscape) {
-                        val = val.replace(regexp('g', escre(block.close), escre(block.close)), block.close);
+            for (let block of blocks) {
+                // TODO: Point.clone ?
+                const startpnt = (0, jsonic_next_1.makePoint)(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI);
+                let match = matchStart(lex, startpnt, block);
+                if (match) {
+                    let result = parseToEnd(lex, startpnt, block);
+                    if (result.done) {
+                        let tkn = lex.token('#HV', result.val, lex.src.substring(lex.pnt.sI, startpnt.sI), startpnt);
+                        lex.pnt.sI = startpnt.sI;
+                        lex.pnt.rI = startpnt.rI;
+                        lex.pnt.cI = startpnt.cI;
+                        return tkn;
                     }
-                    if (null != block.lineReplace) {
-                        val = val.replace(/\r?\n/g, block.lineReplace);
-                    }
-                    console.log('CCC', closing, pnt, 'VAL<' + val + '>', 'SRC<' + src + '>', 'LR[' + block.lineReplace + ']');
-                }
-            }
-            // TODO: slurp to end (whatever end is)
-            // if ('FOO' === fwd.substring(0, 3)) {
-            if (undefined !== val) {
-                if (block) {
-                    if (block.trim) {
-                        let starting = val.match(/^\s*\r?\n(.*)/s);
-                        if (starting) {
-                            val = starting[1];
-                        }
-                        let ending = val.match(/\r?\n\s*$/);
-                        if (ending) {
-                            val = val.substring(0, val.length - ending[0].length);
-                        }
-                        // console.log('TRIM', val, trimming, endtrim)
-                    }
-                    if (block.indent) {
-                        let bwd = lex.src.substring(0, pnt.sI);
-                        let indenting = bwd.match(/(^\s+|\n\s+)$/);
-                        console.log('DDD', bwd, indenting);
-                        if (indenting) {
-                            indent = indenting[0].length;
-                        }
-                        let indenter = 0 < indent ? regexp('', '^\\s{0,', indent, '}(.*)') : undefined;
-                        console.log('INDENT', indent, indenter);
-                        console.log('VAL', '<' + val + '>');
-                        let lines = val.split(/\r?\n/);
-                        console.log('RAW', lines.map((line) => '<' + line + '>'));
-                        lines = lines
-                            .map((line) => ((indenter ? line.match(indenter) : undefined) || [null, line])[1]);
-                        console.log('LINES', lines.map((line) => '<' + line + '>'));
-                        val = lines.join(val.match(/\r\n/) ? '\r\n' : '\n');
-                        console.log('VAL', val);
+                    else {
+                        lex.bad('invalid_text', lex.pnt.sI, startpnt.sI);
                     }
                 }
-                let tkn = lex.token('#TX', val, src, lex.pnt);
-                pnt.sI += src.length;
-                // TODO: wrong, and rI missing
-                pnt.cI += src.length;
-                console.log('HT', tkn);
-                return tkn;
             }
-            // // Hoover colons are ': ' and ':<newline>'.
-            // let colon = fwd.match(/^:( |\r?\n)/)
-            // if (colon) {
-            //   // NOTE: Don't consume newline! leave it for #IN, so it can match properly.
-            //   // Even though the match is <:\n> (say), only move point past the ':'.
-            //   // This is unusual - lex matchers normally consume the entire token string.
-            //   // (In the case ': ', the space will just get ignored).
-            //   let tkn = lex.token('#CL', 1, colon[0], lex.pnt)
-            //   pnt.sI += 1
-            //   pnt.rI += ' ' != colon[1] ? 1 : 0
-            //   pnt.cI += ' ' == colon[1] ? 2 : 0
-            //   return tkn
-            // }
-            // // Indentation is significant. This works because jsonic.lex
-            // // inserts the matcher before existing matchers, so
-            // // lexer.lineMatcher and lexer.spaceMatcher won't get a chance
-            // // to incorrectly match an indent.
-            // let spaces = fwd.match(/^\r?\n +/)
-            // if (spaces) {
-            //   let len = spaces[0].length
-            //   let tkn = lex.token('#IN', len, spaces[0], lex.pnt)
-            //   pnt.sI += len
-            //   pnt.rI += 1
-            //   pnt.cI = len
-            //   return tkn
-            // }
-            console.log('ZZZ');
             return undefined;
         };
     };
-    // let lexers = (jsonic.options.lex as any).match
-    // lexers.splice(lexers.indexOf(makeStringMatcher), 0, makeHooverMatcher)
+    // Create a hoover token
+    const HV = jsonic.token('#HV');
     jsonic.options({
         lex: {
             match: {
-                hoover: { order: 5.5e6, make: makeHooverMatcher }
+                hoover: { order: 7.5e6, make: makeHooverMatcher }
             }
         }
     });
+    jsonic.rule('val', (rs) => {
+        rs.open({
+            s: [HV],
+        });
+    });
 };
 exports.Hoover = Hoover;
-function parseToEnd(lex, spec) {
-    let valc = [];
-    let pnt = lex.pnt;
+function matchStart(lex, pnt, spec) {
     let src = lex.src;
-    let endchars = spec.endchars;
-    let endseqs = spec.endseqs;
     let sI = pnt.sI; // Current point in src
     let rI = pnt.rI; // Current row
     let cI = pnt.cI; // Current column
-    let done = false;
-    let c = '';
-    let end = 0;
-    let m;
-    top: do {
-        c = src[sI];
-        // Check for end
-        if (-1 < (end = endchars.indexOf(c))) {
-            let endseqlist = endseqs[end];
-            endseqlist = Array.isArray(endseqlist) ? endseqlist : [endseqlist];
-            let pI = sI;
-            let endseq;
-            endseq: for (let esI = 0; esI < endseqlist.length; esI++) {
-                endseq = endseqlist[esI];
-                let tail = endseq && endseq.tail$ || endseq;
-                if (undefined === tail) {
-                    done = true;
-                    break endseq;
-                }
-                else if ('string' === typeof tail &&
-                    tail === src.substring(sI + 1, sI + 1 + endseq.length)) {
-                    pI = 1 + endseq.length;
-                    done = true;
-                    break endseq;
-                }
-                // regexp
-                else if (tail.exec && (m = tail.exec(src.substring(sI)))) {
-                    pI = 1 + m[0].length;
-                    done = true;
-                    break endseq;
-                }
+    let rulespec = spec.start.rule;
+    let matchRule = true;
+    if (rulespec) {
+        matchRule = null;
+        if (rulespec.parent) {
+            if (rulespec.parent.include) {
+                matchRule = rulespec.parent.include.includes(lex.ctx.rule.parent.name) &&
+                    (null === matchRule ? true : matchRule);
             }
-            if (done) {
-                if (endseq && false !== endseq.consume$) {
-                    let esI = sI;
-                    let endI = pI;
-                    for (; esI < endI; esI++) {
+        }
+        // '': don't check, 'oc'|'c'|'o' check, default 'o'
+        let rulestate = '' === rulespec.state ? '' : (rulespec.spec || 'o');
+        if (rulestate) {
+            matchRule = rulestate.includes(lex.ctx.rule.state) &&
+                (null === matchRule ? true : matchRule);
+        }
+    }
+    // console.log('HV matchRule', matchRule, lex.ctx.rule.name, lex.ctx.rule.parent.name)
+    let matchFixed = true;
+    let fixed = spec.start.fixed;
+    if (null != fixed) {
+        matchFixed = false;
+        fixed = Array.isArray(fixed) ? fixed : [fixed];
+        for (let fixedStartIndex = 0; !matchFixed && fixedStartIndex < fixed.length; fixedStartIndex++) {
+            if (src.substring(pnt.sI).startsWith(fixed[fixedStartIndex])) {
+                matchFixed = true;
+                if (spec.start.consume) {
+                    let endI = pnt.sI + fixed[fixedStartIndex].length;
+                    for (let fsI = pnt.sI; fsI < endI; fsI++) {
                         sI++;
                         cI++;
-                        if ('\n' === src[esI]) {
+                        if ('\n' === src[fsI]) {
                             rI++;
                             cI = 0;
                         }
                     }
                 }
+                break;
+            }
+        }
+    }
+    // console.log('HV matchFixed', matchFixed)
+    if (matchRule && matchFixed) {
+        pnt.sI = sI;
+        pnt.rI = rI;
+        pnt.cI = cI;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+function parseToEnd(lex, pnt, spec) {
+    let valc = [];
+    let src = lex.src;
+    let fixed = spec.end.fixed;
+    fixed = 'string' === typeof fixed ? [fixed] : fixed;
+    let endchars = fixed.map(end => end[0]);
+    let endseqs = fixed.map(end => end.substring(1));
+    // console.log('ENDCHARS', endchars)
+    // console.log('ENDSEQS', endseqs)
+    let sI = pnt.sI; // Current point in src
+    let rI = pnt.rI; // Current row
+    let cI = pnt.cI; // Current column
+    let done = false;
+    let c = '';
+    let endI = sI;
+    let endCharIndex = 0;
+    // let m
+    top: do {
+        c = src[sI];
+        // Check for end
+        if (-1 < (endCharIndex = endchars.indexOf(c))) {
+            let tail = endseqs[endCharIndex];
+            // let endseqlist = endseqs[end]
+            // endseqlist = Array.isArray(endseqlist) ? endseqlist : [endseqlist]
+            // let endseq
+            // endseq:
+            // for (let esI = 0; esI < endseqlist.length; esI++) {
+            //   endseq = endseqlist[esI]
+            // let tail = endseq && endseq.tail$ || endseq
+            //let tail = endseq
+            // EOF
+            if (undefined === tail || '' === tail) {
+                done = true;
                 break top;
             }
+            // Match tail
+            else if ('string' === typeof tail &&
+                tail === src.substring(sI + 1, sI + 1 + tail.length)) {
+                endI = sI + 1 + tail.length;
+                done = true;
+                break top;
+            }
+            // // regexp
+            // else if (tail.exec && (m = tail.exec(src.substring(sI)))) {
+            //   pI = 1 + m[0].length
+            //   done = true
+            //   break endseq
+            // }
+            // }
+            // break top
         }
         valc.push(c);
         sI++;
@@ -185,6 +166,17 @@ function parseToEnd(lex, spec) {
         }
     } while (sI <= src.length);
     if (done) {
+        if (spec.end.consume) {
+            let esI = sI;
+            for (; esI < endI; esI++) {
+                sI++;
+                cI++;
+                if ('\n' === src[esI]) {
+                    rI++;
+                    cI = 0;
+                }
+            }
+        }
         pnt.sI = sI;
         pnt.rI = rI;
         pnt.cI = cI;
@@ -197,17 +189,17 @@ function parseToEnd(lex, spec) {
 exports.parseToEnd = parseToEnd;
 Hoover.defaults = {
     block: {
-        // TODO: normalize with defaults
-        "'''": {
-            open: "'''",
-            close: "'''",
-            indent: true,
-            trim: true,
-            doubleEscape: false,
-            lineReplace: null,
-        },
-        // TODO: FOR TEST
-        // '<<': { close: '>>', indent: false }
+    // // TODO: normalize with defaults
+    // "'''": {
+    //   open: "'''",
+    //   close: "'''",
+    //   indent: true,
+    //   trim: true,
+    //   doubleEscape: false,
+    //   lineReplace: null,
+    // },
+    // // TODO: FOR TEST
+    // // '<<': { close: '>>', indent: false }
     },
 };
 //# sourceMappingURL=hoover.js.map
