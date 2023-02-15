@@ -1,11 +1,12 @@
 /* Copyright (c) 2021-2023 Richard Rodger, MIT License */
 
-
-
-
+/*
+support regexp
+indent removal
+more rule cases
+*/
 
 // TODO: line continuation ("\" at end) should be a feature of standard JSONIC strings
-
 
 import {
   Jsonic,
@@ -20,15 +21,31 @@ import {
   MakeLexMatcher,
   makeStringMatcher,
   makePoint,
+  Token,
 } from '@jsonic/jsonic-next'
-
 
 type HooverOptions = {
   block: {
-    [name: string]: any
+    [name: string]: {
+      start?: {
+        fixed?: string | string[]
+        consume?: null | boolean // explicit false to turn off
+      }
+      end?: {
+        fixed?: string | string[]
+        consume?: null | boolean // explicit false to turn off
+      }
+      escapeChar?: string
+      escape?: {
+        [char: string]: string
+      }
+      trim: boolean
+    }
+  }
+  lex?: {
+    order?: number
   }
 }
-
 
 const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
   const { entries } = jsonic.util
@@ -36,51 +53,51 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
   let makeHooverMatcher: MakeLexMatcher = (_cfg: Config, _opts: Options) => {
     let blocks = entries(options.block).map((entry: any[]) => ({
       name: entry[0],
-      ...entry[1]
+      ...entry[1],
     }))
 
     return function hooverMatcher(lex: Lex) {
       for (let block of blocks) {
-
         // TODO: Point.clone ?
-        const startpnt = makePoint(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI)
+        const hvpnt = makePoint(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI)
 
-        let match = matchStart(lex, startpnt, block)
-        if (match) {
-          let result = parseToEnd(lex, startpnt, block)
+        let startResult = matchStart(lex, hvpnt, block)
+
+        if (startResult.match) {
+          let result = parseToEnd(lex, hvpnt, block)
+
           if (result.done) {
-            let tkn = lex.token('#HV', result.val,
-              lex.src.substring(lex.pnt.sI, startpnt.sI), startpnt)
+            let tkn = lex.token(
+              '#HV',
+              result.val,
+              lex.src.substring(lex.pnt.sI, hvpnt.sI),
+              hvpnt
+            )
 
-            lex.pnt.sI = startpnt.sI
-            lex.pnt.rI = startpnt.rI
-            lex.pnt.cI = startpnt.cI
+            lex.pnt.sI = hvpnt.sI
+            lex.pnt.rI = hvpnt.rI
+            lex.pnt.cI = hvpnt.cI
 
             return tkn
-          }
-          else {
-            lex.bad('invalid_text', lex.pnt.sI, startpnt.sI)
+          } else {
+            return result.bad || lex.bad('invalid_text', lex.pnt.sI, hvpnt.sI)
           }
         }
       }
 
       return undefined
     }
-
   }
-
-
 
   // Create a hoover token
   const HV = jsonic.token('#HV')
 
   jsonic.options({
-
     lex: {
       match: {
-        hoover: { order: 7.5e6, make: makeHooverMatcher }
-      }
-    }
+        hoover: { order: options.lex?.order, make: makeHooverMatcher },
+      },
+    },
   })
 
   jsonic.rule('val', (rs) => {
@@ -88,55 +105,63 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
       s: [HV],
     })
   })
-
 }
 
-
-function matchStart(lex: Lex, pnt: Point, spec: any): boolean {
+function matchStart(
+  lex: Lex,
+  hvpnt: Point,
+  block: any
+): {
+  match: boolean
+  start?: string
+} {
   let src = lex.src
 
-  let sI = pnt.sI // Current point in src
-  let rI = pnt.rI // Current row
-  let cI = pnt.cI // Current column
+  let sI = hvpnt.sI // Current point in src
+  let rI = hvpnt.rI // Current row
+  let cI = hvpnt.cI // Current column
 
-  let rulespec = spec.start.rule
-  let matchRule: null | boolean = true
+  let start = block.start || {}
+  let rulespec = start.rule || {}
+  let matchRule: null | boolean = null
 
-  if (rulespec) {
-    matchRule = null
+  // NOTE: Default rules:
+  // - parent is pair,elem
+  // - state is open
 
-    if (rulespec.parent) {
-      if (rulespec.parent.include) {
-        matchRule = rulespec.parent.include.includes(lex.ctx.rule.parent.name) &&
-          (null === matchRule ? true : matchRule)
-      }
-    }
-
-    // '': don't check, 'oc'|'c'|'o' check, default 'o'
-    let rulestate = '' === rulespec.state ? '' : (rulespec.spec || 'o')
-    if (rulestate) {
-      matchRule = rulestate.includes(lex.ctx.rule.state) &&
+  if (rulespec.parent) {
+    if (rulespec.parent.include) {
+      matchRule =
+        rulespec.parent.include.includes(lex.ctx.rule.parent.name) &&
         (null === matchRule ? true : matchRule)
     }
   }
+  // else {
+  //   matchRule = ['pair', 'elem'].includes(lex.ctx.rule.parent.name) &&
+  //     (null === matchRule ? true : matchRule)
+  // }
 
-  // console.log('HV matchRule', matchRule, lex.ctx.rule.name, lex.ctx.rule.parent.name)
+  // '': don't check, 'oc'|'c'|'o' check, default 'o'
+  let rulestate = '' === rulespec.state ? '' : rulespec.spec || 'o'
+  if (rulestate) {
+    matchRule =
+      rulestate.includes(lex.ctx.rule.state) &&
+      (null === matchRule ? true : matchRule)
+  }
 
   let matchFixed = true
-  let fixed = spec.start.fixed
-  if (null != fixed) {
+  let fixed = start.fixed
+  if (matchRule && null != fixed) {
     matchFixed = false
 
     fixed = Array.isArray(fixed) ? fixed : [fixed]
-    for (let fixedStartIndex = 0;
-      !matchFixed && fixedStartIndex < fixed.length;
-      fixedStartIndex++) {
-      if (src.substring(pnt.sI).startsWith(fixed[fixedStartIndex])) {
+    for (let fI = 0; !matchFixed && fI < fixed.length; fI++) {
+      if (src.substring(hvpnt.sI).startsWith(fixed[fI])) {
         matchFixed = true
 
-        if (spec.start.consume) {
-          let endI = pnt.sI + fixed[fixedStartIndex].length
-          for (let fsI = pnt.sI; fsI < endI; fsI++) {
+        if (false !== start.consume) {
+          let endI = hvpnt.sI + fixed[fI].length
+          for (let fsI = hvpnt.sI; fsI < endI; fsI++) {
             sI++
             cI++
             if ('\n' === src[fsI]) {
@@ -151,67 +176,60 @@ function matchStart(lex: Lex, pnt: Point, spec: any): boolean {
     }
   }
 
-  // console.log('HV matchFixed', matchFixed)
-
   if (matchRule && matchFixed) {
-    pnt.sI = sI
-    pnt.rI = rI
-    pnt.cI = cI
+    let startsrc = src.substring(hvpnt.sI, sI)
 
-    return true
-  }
-  else {
-    return false
+    if (false !== block.trim) {
+      startsrc = startsrc.trim()
+    }
+
+    hvpnt.sI = sI
+    hvpnt.rI = rI
+    hvpnt.cI = cI
+
+    return { match: true, start: startsrc }
+  } else {
+    return { match: false }
   }
 }
 
-
-function parseToEnd(lex: Lex, pnt: Point, spec: any): {
+function parseToEnd(
+  lex: Lex,
+  hvpnt: Point,
+  block: any
+): {
   done: boolean
   val: string
+  bad?: Token
 } {
   let valc = []
 
   let src = lex.src
 
-  let fixed: string[] = spec.end.fixed
+  let endspec = block.end
+  let fixed: string[] = endspec.fixed
   fixed = 'string' === typeof fixed ? [fixed] : fixed
 
-  let endchars = fixed.map(end => end[0])
-  let endseqs = fixed.map(end => end.substring(1))
+  let endchars = fixed.map((end) => end[0])
+  let endseqs = fixed.map((end) => end.substring(1))
 
-  // console.log('ENDCHARS', endchars)
-  // console.log('ENDSEQS', endseqs)
+  let escapeChar = block.escapeChar
 
-  let sI = pnt.sI // Current point in src
-  let rI = pnt.rI // Current row
-  let cI = pnt.cI // Current column
+  let sI = hvpnt.sI // Current point in src
+  let rI = hvpnt.rI // Current row
+  let cI = hvpnt.cI // Current column
 
   let done = false
   let c: string = ''
   let endI = sI
   let endCharIndex = 0
-  // let m
 
-
-  top:
-  do {
+  top: do {
     c = src[sI]
 
     // Check for end
     if (-1 < (endCharIndex = endchars.indexOf(c))) {
       let tail = endseqs[endCharIndex]
-      // let endseqlist = endseqs[end]
-      // endseqlist = Array.isArray(endseqlist) ? endseqlist : [endseqlist]
-
-      // let endseq
-
-      // endseq:
-      // for (let esI = 0; esI < endseqlist.length; esI++) {
-      //   endseq = endseqlist[esI]
-
-      // let tail = endseq && endseq.tail$ || endseq
-      //let tail = endseq
 
       // EOF
       if (undefined === tail || '' === tail) {
@@ -220,8 +238,10 @@ function parseToEnd(lex: Lex, pnt: Point, spec: any): {
       }
 
       // Match tail
-      else if ('string' === typeof tail &&
-        tail === src.substring(sI + 1, sI + 1 + tail.length)) {
+      else if (
+        'string' === typeof tail &&
+        tail === src.substring(sI + 1, sI + 1 + tail.length)
+      ) {
         endI = sI + 1 + tail.length
         done = true
         break top
@@ -238,6 +258,22 @@ function parseToEnd(lex: Lex, pnt: Point, spec: any): {
       // break top
     }
 
+    if (escapeChar === c) {
+      let replacement = block.escape[src[sI + 1]]
+
+      if (null != replacement) {
+        c = replacement
+        sI++
+        cI++
+      } else {
+        return {
+          done: false,
+          val: '',
+          bad: lex.bad('invalid_escape', sI, sI + 1),
+        }
+      }
+    }
+
     valc.push(c)
     sI++
     cI++
@@ -245,11 +281,10 @@ function parseToEnd(lex: Lex, pnt: Point, spec: any): {
       rI++
       cI = 0
     }
-  }
-  while (sI <= src.length)
+  } while (sI <= src.length)
 
   if (done) {
-    if (spec.end.consume) {
+    if (false !== endspec.consume) {
       let esI = sI
       for (; esI < endI; esI++) {
         sI++
@@ -261,9 +296,9 @@ function parseToEnd(lex: Lex, pnt: Point, spec: any): {
       }
     }
 
-    pnt.sI = sI
-    pnt.rI = rI
-    pnt.cI = cI
+    hvpnt.sI = sI
+    hvpnt.rI = rI
+    hvpnt.cI = cI
   }
 
   return {
@@ -272,11 +307,8 @@ function parseToEnd(lex: Lex, pnt: Point, spec: any): {
   }
 }
 
-
-
-Hoover.defaults = ({
+Hoover.defaults = {
   block: {
-
     // // TODO: normalize with defaults
     // "'''": {
     //   open: "'''",
@@ -286,18 +318,14 @@ Hoover.defaults = ({
     //   doubleEscape: false,
     //   lineReplace: null,
     // },
-
     // // TODO: FOR TEST
     // // '<<': { close: '>>', indent: false }
   },
-} as HooverOptions)
+  lex: {
+    order: 4.5e6, // before string, number
+  },
+} as HooverOptions
 
+export { parseToEnd, Hoover }
 
-export {
-  parseToEnd,
-  Hoover,
-}
-
-export type {
-  HooverOptions,
-}
+export type { HooverOptions }

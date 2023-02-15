@@ -2,31 +2,37 @@
 /* Copyright (c) 2021-2023 Richard Rodger, MIT License */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Hoover = exports.parseToEnd = void 0;
+/*
+support regexp
+indent removal
+more rule cases
+*/
 // TODO: line continuation ("\" at end) should be a feature of standard JSONIC strings
 const jsonic_next_1 = require("@jsonic/jsonic-next");
 const Hoover = (jsonic, options) => {
+    var _a;
     const { entries } = jsonic.util;
     let makeHooverMatcher = (_cfg, _opts) => {
         let blocks = entries(options.block).map((entry) => ({
             name: entry[0],
-            ...entry[1]
+            ...entry[1],
         }));
         return function hooverMatcher(lex) {
             for (let block of blocks) {
                 // TODO: Point.clone ?
-                const startpnt = (0, jsonic_next_1.makePoint)(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI);
-                let match = matchStart(lex, startpnt, block);
-                if (match) {
-                    let result = parseToEnd(lex, startpnt, block);
+                const hvpnt = (0, jsonic_next_1.makePoint)(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI);
+                let startResult = matchStart(lex, hvpnt, block);
+                if (startResult.match) {
+                    let result = parseToEnd(lex, hvpnt, block);
                     if (result.done) {
-                        let tkn = lex.token('#HV', result.val, lex.src.substring(lex.pnt.sI, startpnt.sI), startpnt);
-                        lex.pnt.sI = startpnt.sI;
-                        lex.pnt.rI = startpnt.rI;
-                        lex.pnt.cI = startpnt.cI;
+                        let tkn = lex.token('#HV', result.val, lex.src.substring(lex.pnt.sI, hvpnt.sI), hvpnt);
+                        lex.pnt.sI = hvpnt.sI;
+                        lex.pnt.rI = hvpnt.rI;
+                        lex.pnt.cI = hvpnt.cI;
                         return tkn;
                     }
                     else {
-                        lex.bad('invalid_text', lex.pnt.sI, startpnt.sI);
+                        return result.bad || lex.bad('invalid_text', lex.pnt.sI, hvpnt.sI);
                     }
                 }
             }
@@ -38,9 +44,9 @@ const Hoover = (jsonic, options) => {
     jsonic.options({
         lex: {
             match: {
-                hoover: { order: 7.5e6, make: makeHooverMatcher }
-            }
-        }
+                hoover: { order: (_a = options.lex) === null || _a === void 0 ? void 0 : _a.order, make: makeHooverMatcher },
+            },
+        },
     });
     jsonic.rule('val', (rs) => {
         rs.open({
@@ -49,40 +55,46 @@ const Hoover = (jsonic, options) => {
     });
 };
 exports.Hoover = Hoover;
-function matchStart(lex, pnt, spec) {
+function matchStart(lex, hvpnt, block) {
     let src = lex.src;
-    let sI = pnt.sI; // Current point in src
-    let rI = pnt.rI; // Current row
-    let cI = pnt.cI; // Current column
-    let rulespec = spec.start.rule;
-    let matchRule = true;
-    if (rulespec) {
-        matchRule = null;
-        if (rulespec.parent) {
-            if (rulespec.parent.include) {
-                matchRule = rulespec.parent.include.includes(lex.ctx.rule.parent.name) &&
+    let sI = hvpnt.sI; // Current point in src
+    let rI = hvpnt.rI; // Current row
+    let cI = hvpnt.cI; // Current column
+    let start = block.start || {};
+    let rulespec = start.rule || {};
+    let matchRule = null;
+    // NOTE: Default rules:
+    // - parent is pair,elem
+    // - state is open
+    if (rulespec.parent) {
+        if (rulespec.parent.include) {
+            matchRule =
+                rulespec.parent.include.includes(lex.ctx.rule.parent.name) &&
                     (null === matchRule ? true : matchRule);
-            }
-        }
-        // '': don't check, 'oc'|'c'|'o' check, default 'o'
-        let rulestate = '' === rulespec.state ? '' : (rulespec.spec || 'o');
-        if (rulestate) {
-            matchRule = rulestate.includes(lex.ctx.rule.state) &&
-                (null === matchRule ? true : matchRule);
         }
     }
-    // console.log('HV matchRule', matchRule, lex.ctx.rule.name, lex.ctx.rule.parent.name)
+    // else {
+    //   matchRule = ['pair', 'elem'].includes(lex.ctx.rule.parent.name) &&
+    //     (null === matchRule ? true : matchRule)
+    // }
+    // '': don't check, 'oc'|'c'|'o' check, default 'o'
+    let rulestate = '' === rulespec.state ? '' : rulespec.spec || 'o';
+    if (rulestate) {
+        matchRule =
+            rulestate.includes(lex.ctx.rule.state) &&
+                (null === matchRule ? true : matchRule);
+    }
     let matchFixed = true;
-    let fixed = spec.start.fixed;
-    if (null != fixed) {
+    let fixed = start.fixed;
+    if (matchRule && null != fixed) {
         matchFixed = false;
         fixed = Array.isArray(fixed) ? fixed : [fixed];
-        for (let fixedStartIndex = 0; !matchFixed && fixedStartIndex < fixed.length; fixedStartIndex++) {
-            if (src.substring(pnt.sI).startsWith(fixed[fixedStartIndex])) {
+        for (let fI = 0; !matchFixed && fI < fixed.length; fI++) {
+            if (src.substring(hvpnt.sI).startsWith(fixed[fI])) {
                 matchFixed = true;
-                if (spec.start.consume) {
-                    let endI = pnt.sI + fixed[fixedStartIndex].length;
-                    for (let fsI = pnt.sI; fsI < endI; fsI++) {
+                if (false !== start.consume) {
+                    let endI = hvpnt.sI + fixed[fI].length;
+                    for (let fsI = hvpnt.sI; fsI < endI; fsI++) {
                         sI++;
                         cI++;
                         if ('\n' === src[fsI]) {
@@ -95,47 +107,41 @@ function matchStart(lex, pnt, spec) {
             }
         }
     }
-    // console.log('HV matchFixed', matchFixed)
     if (matchRule && matchFixed) {
-        pnt.sI = sI;
-        pnt.rI = rI;
-        pnt.cI = cI;
-        return true;
+        let startsrc = src.substring(hvpnt.sI, sI);
+        if (false !== block.trim) {
+            startsrc = startsrc.trim();
+        }
+        hvpnt.sI = sI;
+        hvpnt.rI = rI;
+        hvpnt.cI = cI;
+        return { match: true, start: startsrc };
     }
     else {
-        return false;
+        return { match: false };
     }
 }
-function parseToEnd(lex, pnt, spec) {
+function parseToEnd(lex, hvpnt, block) {
     let valc = [];
     let src = lex.src;
-    let fixed = spec.end.fixed;
+    let endspec = block.end;
+    let fixed = endspec.fixed;
     fixed = 'string' === typeof fixed ? [fixed] : fixed;
-    let endchars = fixed.map(end => end[0]);
-    let endseqs = fixed.map(end => end.substring(1));
-    // console.log('ENDCHARS', endchars)
-    // console.log('ENDSEQS', endseqs)
-    let sI = pnt.sI; // Current point in src
-    let rI = pnt.rI; // Current row
-    let cI = pnt.cI; // Current column
+    let endchars = fixed.map((end) => end[0]);
+    let endseqs = fixed.map((end) => end.substring(1));
+    let escapeChar = block.escapeChar;
+    let sI = hvpnt.sI; // Current point in src
+    let rI = hvpnt.rI; // Current row
+    let cI = hvpnt.cI; // Current column
     let done = false;
     let c = '';
     let endI = sI;
     let endCharIndex = 0;
-    // let m
     top: do {
         c = src[sI];
         // Check for end
         if (-1 < (endCharIndex = endchars.indexOf(c))) {
             let tail = endseqs[endCharIndex];
-            // let endseqlist = endseqs[end]
-            // endseqlist = Array.isArray(endseqlist) ? endseqlist : [endseqlist]
-            // let endseq
-            // endseq:
-            // for (let esI = 0; esI < endseqlist.length; esI++) {
-            //   endseq = endseqlist[esI]
-            // let tail = endseq && endseq.tail$ || endseq
-            //let tail = endseq
             // EOF
             if (undefined === tail || '' === tail) {
                 done = true;
@@ -157,6 +163,21 @@ function parseToEnd(lex, pnt, spec) {
             // }
             // break top
         }
+        if (escapeChar === c) {
+            let replacement = block.escape[src[sI + 1]];
+            if (null != replacement) {
+                c = replacement;
+                sI++;
+                cI++;
+            }
+            else {
+                return {
+                    done: false,
+                    val: '',
+                    bad: lex.bad('invalid_escape', sI, sI + 1),
+                };
+            }
+        }
         valc.push(c);
         sI++;
         cI++;
@@ -166,7 +187,7 @@ function parseToEnd(lex, pnt, spec) {
         }
     } while (sI <= src.length);
     if (done) {
-        if (spec.end.consume) {
+        if (false !== endspec.consume) {
             let esI = sI;
             for (; esI < endI; esI++) {
                 sI++;
@@ -177,9 +198,9 @@ function parseToEnd(lex, pnt, spec) {
                 }
             }
         }
-        pnt.sI = sI;
-        pnt.rI = rI;
-        pnt.cI = cI;
+        hvpnt.sI = sI;
+        hvpnt.rI = rI;
+        hvpnt.cI = cI;
     }
     return {
         done,
@@ -200,6 +221,9 @@ Hoover.defaults = {
     // },
     // // TODO: FOR TEST
     // // '<<': { close: '>>', indent: false }
+    },
+    lex: {
+        order: 4.5e6, // before string, number
     },
 };
 //# sourceMappingURL=hoover.js.map
