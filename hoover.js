@@ -12,20 +12,38 @@ const jsonic_next_1 = require("@jsonic/jsonic-next");
 const Hoover = (jsonic, options) => {
     var _a;
     const { entries } = jsonic.util;
-    let makeHooverMatcher = (_cfg, _opts) => {
-        let blocks = entries(options.block).map((entry) => ({
-            name: entry[0],
-            ...entry[1],
-        }));
+    let blocks = entries(options.block).map((entry) => ({
+        allowUnknownEscape: true,
+        preserveEscapeChar: false,
+        token: '#HV',
+        ...entry[1],
+        name: entry[0],
+    }));
+    let tokenMap = {};
+    for (let block of blocks) {
+        // Create a hoover token
+        block.TOKEN = jsonic.token(block.token);
+        if (!tokenMap[block.token]) {
+            jsonic.rule('val', (rs) => {
+                rs.open({
+                    s: [block.TOKEN],
+                    a: options.action,
+                });
+            });
+        }
+        tokenMap[block.token] = block.TOKEN;
+    }
+    let makeHooverMatcher = (cfg, _opts) => {
         return function hooverMatcher(lex) {
             for (let block of blocks) {
                 // TODO: Point.clone ?
                 const hvpnt = (0, jsonic_next_1.makePoint)(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI);
                 let startResult = matchStart(lex, hvpnt, block);
                 if (startResult.match) {
-                    let result = parseToEnd(lex, hvpnt, block);
+                    let result = parseToEnd(lex, hvpnt, block, cfg);
                     if (result.done) {
-                        let tkn = lex.token('#HV', result.val, lex.src.substring(lex.pnt.sI, hvpnt.sI), hvpnt);
+                        let tkn = lex.token(block.TOKEN, result.val, lex.src.substring(lex.pnt.sI, hvpnt.sI), hvpnt);
+                        tkn.use = { block: block.name };
                         lex.pnt.sI = hvpnt.sI;
                         lex.pnt.rI = hvpnt.rI;
                         lex.pnt.cI = hvpnt.cI;
@@ -39,19 +57,12 @@ const Hoover = (jsonic, options) => {
             return undefined;
         };
     };
-    // Create a hoover token
-    const HV = jsonic.token('#HV');
     jsonic.options({
         lex: {
             match: {
                 hoover: { order: (_a = options.lex) === null || _a === void 0 ? void 0 : _a.order, make: makeHooverMatcher },
             },
         },
-    });
-    jsonic.rule('val', (rs) => {
-        rs.open({
-            s: [HV],
-        });
     });
 };
 exports.Hoover = Hoover;
@@ -72,13 +83,26 @@ function matchStart(lex, hvpnt, block) {
                 rulespec.parent.include.includes(lex.ctx.rule.parent.name) &&
                     (null === matchRule ? true : matchRule);
         }
+        if (rulespec.parent.exclude) {
+            matchRule =
+                !rulespec.parent.exclude.includes(lex.ctx.rule.parent.name) &&
+                    (null === matchRule ? true : matchRule);
+        }
     }
-    // else {
-    //   matchRule = ['pair', 'elem'].includes(lex.ctx.rule.parent.name) &&
-    //     (null === matchRule ? true : matchRule)
-    // }
+    if (rulespec.current) {
+        if (rulespec.current.include) {
+            matchRule =
+                rulespec.current.include.includes(lex.ctx.rule.name) &&
+                    (null === matchRule ? true : matchRule);
+        }
+        if (rulespec.current.exclude) {
+            matchRule =
+                !rulespec.current.exclude.includes(lex.ctx.rule.name) &&
+                    (null === matchRule ? true : matchRule);
+        }
+    }
     // '': don't check, 'oc'|'c'|'o' check, default 'o'
-    let rulestate = '' === rulespec.state ? '' : rulespec.spec || 'o';
+    let rulestate = '' === rulespec.state ? '' : rulespec.state || 'o';
     if (rulestate) {
         matchRule =
             rulestate.includes(lex.ctx.rule.state) &&
@@ -115,13 +139,16 @@ function matchStart(lex, hvpnt, block) {
         hvpnt.sI = sI;
         hvpnt.rI = rI;
         hvpnt.cI = cI;
-        return { match: true, start: startsrc };
+        return {
+            match: true,
+            start: startsrc
+        };
     }
     else {
         return { match: false };
     }
 }
-function parseToEnd(lex, hvpnt, block) {
+function parseToEnd(lex, hvpnt, block, cfg) {
     let valc = [];
     let src = lex.src;
     let endspec = block.end;
@@ -170,6 +197,10 @@ function parseToEnd(lex, hvpnt, block) {
                 sI++;
                 cI++;
             }
+            else if (block.allowUnknownEscape) {
+                c = block.preserveEscapeChar ? src.substring(sI, sI + 2) : src[sI + 1];
+                sI++;
+            }
             else {
                 return {
                     done: false,
@@ -202,9 +233,16 @@ function parseToEnd(lex, hvpnt, block) {
         hvpnt.rI = rI;
         hvpnt.cI = cI;
     }
+    let val = valc.join('');
+    if (block.trim) {
+        val = val.trim();
+    }
+    if (cfg.value.lex && undefined !== cfg.value.def[val]) {
+        val = cfg.value.def[val].val;
+    }
     return {
         done,
-        val: valc.join(''),
+        val,
     };
 }
 exports.parseToEnd = parseToEnd;

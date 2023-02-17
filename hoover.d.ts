@@ -1,4 +1,4 @@
-import { Plugin, Lex, Point, Token } from '@jsonic/jsonic-next';
+import { Plugin, Config, Lex, Point, Token, AltAction } from '@jsonic/jsonic-next';
 type HooverOptions = {
     block: {
         [name: string]: {
@@ -14,15 +14,18 @@ type HooverOptions = {
             escape?: {
                 [char: string]: string;
             };
+            allowUnknownEscape: boolean;
+            preserveEscapeChar: boolean;
             trim: boolean;
         };
     };
     lex?: {
         order?: number;
     };
+    action?: AltAction;
 };
 declare const Hoover: Plugin;
-declare function parseToEnd(lex: Lex, hvpnt: Point, block: any): {
+declare function parseToEnd(lex: Lex, hvpnt: Point, block: any, cfg: Config): {
     done: boolean;
     val: string;
     bad?: Token;
