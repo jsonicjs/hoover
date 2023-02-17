@@ -53,7 +53,8 @@ describe('hoover', () => {
                         }
                     },
                     end: {
-                        fixed: ['\n', '\r\n', '#', ';', '']
+                        fixed: ['\n', '\r\n', '#', ';', ''],
+                        consume: ['\n', '\r\n'],
                     },
                     escapeChar: '\\',
                     escape: {

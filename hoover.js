@@ -42,9 +42,6 @@ const Hoover = (jsonic, options) => {
                 if (startResult.match) {
                     let result = parseToEnd(lex, hvpnt, block, cfg);
                     if (result.done) {
-                        // if ('' === result.val) {
-                        //   return undefined;
-                        // }
                         let tkn = lex.token(block.TOKEN, result.val, lex.src.substring(lex.pnt.sI, hvpnt.sI), hvpnt);
                         tkn.use = { block: block.name };
                         lex.pnt.sI = hvpnt.sI;
@@ -120,7 +117,8 @@ function matchStart(lex, hvpnt, block) {
             if (src.substring(hvpnt.sI).startsWith(fixed[fI])) {
                 matchFixed = true;
                 if (false !== start.consume) {
-                    if (!Array.isArray(start.consume) || start.consume.includes(fixed[fI])) {
+                    if (!Array.isArray(start.consume) ||
+                        start.consume.includes(fixed[fI])) {
                         let endI = hvpnt.sI + fixed[fI].length;
                         for (let fsI = hvpnt.sI; fsI < endI; fsI++) {
                             sI++;
@@ -146,7 +144,7 @@ function matchStart(lex, hvpnt, block) {
         hvpnt.cI = cI;
         return {
             match: true,
-            start: startsrc
+            start: startsrc,
         };
     }
     else {
@@ -226,7 +224,8 @@ function parseToEnd(lex, hvpnt, block, cfg) {
     if (done) {
         if (false !== endspec.consume) {
             let endfixed = src.substring(sI, endI);
-            if (!Array.isArray(endspec.consume) || endspec.consume.includes(endfixed)) {
+            if (!Array.isArray(endspec.consume) ||
+                endspec.consume.includes(endfixed)) {
                 let esI = sI;
                 for (; esI < endI; esI++) {
                     sI++;

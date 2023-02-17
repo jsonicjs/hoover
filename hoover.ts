@@ -51,7 +51,6 @@ type HooverOptions = {
   action?: AltAction
 }
 
-
 const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
   const { entries } = jsonic.util
 
@@ -81,11 +80,8 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
     tokenMap[block.token] = block.TOKEN
   }
 
-
   let makeHooverMatcher: MakeLexMatcher = (cfg: Config, _opts: Options) => {
-
     return function hooverMatcher(lex: Lex) {
-
       for (let block of blocks) {
         // TODO: Point.clone ?
         const hvpnt = makePoint(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI)
@@ -96,10 +92,6 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
           let result = parseToEnd(lex, hvpnt, block, cfg)
 
           if (result.done) {
-            // if ('' === result.val) {
-            //   return undefined;
-            // }
-
             let tkn = lex.token(
               block.TOKEN,
               result.val,
@@ -154,8 +146,6 @@ function matchStart(
   // - parent is pair,elem
   // - state is open
 
-
-
   if (rulespec.parent) {
     if (rulespec.parent.include) {
       matchRule =
@@ -201,7 +191,10 @@ function matchStart(
         matchFixed = true
 
         if (false !== start.consume) {
-          if (!Array.isArray(start.consume) || start.consume.includes(fixed[fI])) {
+          if (
+            !Array.isArray(start.consume) ||
+            start.consume.includes(fixed[fI])
+          ) {
             let endI = hvpnt.sI + fixed[fI].length
             for (let fsI = hvpnt.sI; fsI < endI; fsI++) {
               sI++
@@ -232,7 +225,7 @@ function matchStart(
 
     return {
       match: true,
-      start: startsrc
+      start: startsrc,
     }
   } else {
     return { match: false }
@@ -313,12 +306,10 @@ function parseToEnd(
         c = replacement
         sI++
         cI++
-      }
-      else if (block.allowUnknownEscape) {
+      } else if (block.allowUnknownEscape) {
         c = block.preserveEscapeChar ? src.substring(sI, sI + 2) : src[sI + 1]
         sI++
-      }
-      else {
+      } else {
         return {
           done: false,
           val: '',
@@ -334,13 +325,15 @@ function parseToEnd(
       rI++
       cI = 0
     }
-
   } while (sI <= src.length)
 
   if (done) {
     if (false !== endspec.consume) {
       let endfixed = src.substring(sI, endI)
-      if (!Array.isArray(endspec.consume) || endspec.consume.includes(endfixed)) {
+      if (
+        !Array.isArray(endspec.consume) ||
+        endspec.consume.includes(endfixed)
+      ) {
         let esI = sI
         for (; esI < endI; esI++) {
           sI++

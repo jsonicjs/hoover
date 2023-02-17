@@ -1,6 +1,6 @@
 {
   "name": "@jsonic/hoover",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "This plugin allows the [Jsonic](https://jsonic.senecajs.org) JSON parser to support string hoovering (unquoted internal spaces).",
   "main": "hoover.js",
   "type": "commonjs",
@@ -40,7 +40,7 @@
     "LICENSE"
   ],
   "devDependencies": {
-    "@jsonic/jsonic-next": ">=2.7.0",
+    "@jsonic/jsonic-next": ">=2.8.0",
     "@types/jest": "^29.4.0",
     "browserify": "^17.0.0",
     "es-jest": "^2.1.0",
@@ -51,6 +51,6 @@
     "typescript": "^4.9.5"
   },
   "peerDependencies": {
-    "@jsonic/jsonic-next": ">=2.7.0"
+    "@jsonic/jsonic-next": ">=2.8.0"
   }
 }

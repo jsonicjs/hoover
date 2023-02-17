@@ -17,6 +17,7 @@ const j = Jsonic.make()
         },
         end: {
           fixed: ['\n', '\r\n', '#', ''],
+          consume: ['\n', '\r\n'],
         },
       },
     },
@@ -24,9 +25,8 @@ const j = Jsonic.make()
 
 console.log(
   j(`
-a: x
-b: y y
-c: 1
+a: x#y
+b: 1
 `)
 )
 
