@@ -4,11 +4,11 @@ type HooverOptions = {
         [name: string]: {
             start?: {
                 fixed?: string | string[];
-                consume?: null | boolean;
+                consume?: null | boolean | string[];
             };
             end?: {
                 fixed?: string | string[];
-                consume?: null | boolean;
+                consume?: null | boolean | string[];
             };
             escapeChar?: string;
             escape?: {

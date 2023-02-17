@@ -42,6 +42,9 @@ const Hoover = (jsonic, options) => {
                 if (startResult.match) {
                     let result = parseToEnd(lex, hvpnt, block, cfg);
                     if (result.done) {
+                        // if ('' === result.val) {
+                        //   return undefined;
+                        // }
                         let tkn = lex.token(block.TOKEN, result.val, lex.src.substring(lex.pnt.sI, hvpnt.sI), hvpnt);
                         tkn.use = { block: block.name };
                         lex.pnt.sI = hvpnt.sI;
@@ -117,13 +120,15 @@ function matchStart(lex, hvpnt, block) {
             if (src.substring(hvpnt.sI).startsWith(fixed[fI])) {
                 matchFixed = true;
                 if (false !== start.consume) {
-                    let endI = hvpnt.sI + fixed[fI].length;
-                    for (let fsI = hvpnt.sI; fsI < endI; fsI++) {
-                        sI++;
-                        cI++;
-                        if ('\n' === src[fsI]) {
-                            rI++;
-                            cI = 0;
+                    if (!Array.isArray(start.consume) || start.consume.includes(fixed[fI])) {
+                        let endI = hvpnt.sI + fixed[fI].length;
+                        for (let fsI = hvpnt.sI; fsI < endI; fsI++) {
+                            sI++;
+                            cI++;
+                            if ('\n' === src[fsI]) {
+                                rI++;
+                                cI = 0;
+                            }
                         }
                     }
                 }
@@ -171,6 +176,7 @@ function parseToEnd(lex, hvpnt, block, cfg) {
             let tail = endseqs[endCharIndex];
             // EOF
             if (undefined === tail || '' === tail) {
+                endI = sI + 1;
                 done = true;
                 break top;
             }
@@ -219,13 +225,16 @@ function parseToEnd(lex, hvpnt, block, cfg) {
     } while (sI <= src.length);
     if (done) {
         if (false !== endspec.consume) {
-            let esI = sI;
-            for (; esI < endI; esI++) {
-                sI++;
-                cI++;
-                if ('\n' === src[esI]) {
-                    rI++;
-                    cI = 0;
+            let endfixed = src.substring(sI, endI);
+            if (!Array.isArray(endspec.consume) || endspec.consume.includes(endfixed)) {
+                let esI = sI;
+                for (; esI < endI; esI++) {
+                    sI++;
+                    cI++;
+                    if ('\n' === src[esI]) {
+                        rI++;
+                        cI = 0;
+                    }
                 }
             }
         }
