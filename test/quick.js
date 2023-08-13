@@ -27,7 +27,7 @@ console.log(
   j(`
 a: x#y
 b: 1
-`)
+`),
 )
 
 /*

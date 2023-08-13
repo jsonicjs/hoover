@@ -96,7 +96,7 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
               block.TOKEN,
               result.val,
               lex.src.substring(lex.pnt.sI, hvpnt.sI),
-              hvpnt
+              hvpnt,
             )
             tkn.use = { block: block.name }
 
@@ -127,7 +127,7 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
 function matchStart(
   lex: Lex,
   hvpnt: Point,
-  block: any
+  block: any,
 ): {
   match: boolean
   start?: string
@@ -236,7 +236,7 @@ function parseToEnd(
   lex: Lex,
   hvpnt: Point,
   block: any,
-  cfg: Config
+  cfg: Config,
 ): {
   done: boolean
   val: string
