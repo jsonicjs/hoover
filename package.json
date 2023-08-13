@@ -1,6 +1,6 @@
 {
   "name": "@jsonic/hoover",
-  "version": "0.3.2",
+  "version": "0.3.4",
   "description": "This plugin allows the [Jsonic](https://jsonic.senecajs.org) JSON parser to support string hoovering (unquoted internal spaces).",
   "main": "hoover.js",
   "type": "commonjs",
@@ -27,7 +27,7 @@
     "build": "tsc -d && cp hoover.js hoover.min.js && browserify -o hoover.min.js -e hoover.js -s @JsonicHoover -im -i assert -p tinyify",
     "prettier": "prettier --write --no-semi --single-quote *.ts test/*.js",
     "clean": "rm -rf node_modules yarn.lock package-lock.json",
-    "reset": "npm run clean && npm i && npm test",
+    "reset": "npm run clean && npm i && npm run build && npm test",
     "repo-tag": "REPO_VERSION=`node -e \"console.log(require('./package').version)\"` && echo TAG: v$REPO_VERSION && git commit -a -m v$REPO_VERSION && git push && git tag v$REPO_VERSION && git push --tags;",
     "repo-publish": "npm run clean && npm i && npm run repo-publish-quick",
     "repo-publish-quick": "npm run prettier && npm run build && npm run test && npm run repo-tag && npm publish --access public --registry https://registry.npmjs.org "
