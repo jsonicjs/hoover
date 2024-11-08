@@ -1,12 +1,12 @@
 "use strict";
 /* Copyright (c) 2021 Richard Rodger and other contributors, MIT License */
 Object.defineProperty(exports, "__esModule", { value: true });
-const jsonic_next_1 = require("@jsonic/jsonic-next");
+const jsonic_1 = require("jsonic");
 // import { Debug } from '@jsonic/jsonic-next/debug'
 const hoover_1 = require("../hoover");
 describe('hoover', () => {
     test('triplequote', () => {
-        const j = jsonic_next_1.Jsonic.make().use(hoover_1.Hoover, {
+        const j = jsonic_1.Jsonic.make().use(hoover_1.Hoover, {
             block: {
                 triplequote: {
                     start: {
@@ -37,7 +37,7 @@ describe('hoover', () => {
             .toEqual({ a: 1, b: 'x', c: ['y'], d: { e: 'z' }, f: "'''" });
     });
     test('endofline', () => {
-        const j = jsonic_next_1.Jsonic.make()
+        const j = jsonic_1.Jsonic.make()
             // .use(Debug, { trace: true })
             .use(hoover_1.Hoover, {
             lex: {

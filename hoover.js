@@ -9,7 +9,7 @@ indent removal
 more rule cases
 */
 // TODO: line continuation ("\" at end) should be a feature of standard JSONIC strings
-const jsonic_next_1 = require("@jsonic/jsonic-next");
+const jsonic_1 = require("jsonic");
 const Hoover = (jsonic, options) => {
     var _a;
     const { entries } = jsonic.util;
@@ -38,7 +38,7 @@ const Hoover = (jsonic, options) => {
         return function hooverMatcher(lex) {
             for (let block of blocks) {
                 // TODO: Point.clone ?
-                const hvpnt = (0, jsonic_next_1.makePoint)(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI);
+                const hvpnt = (0, jsonic_1.makePoint)(lex.pnt.len, lex.pnt.sI, lex.pnt.rI, lex.pnt.cI);
                 let startResult = matchStart(lex, hvpnt, block);
                 if (startResult.match) {
                     let result = parseToEnd(lex, hvpnt, block, cfg);

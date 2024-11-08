@@ -23,7 +23,7 @@ import {
   makePoint,
   Token,
   AltAction,
-} from '@jsonic/jsonic-next'
+} from 'jsonic'
 
 type HooverOptions = {
   block: {

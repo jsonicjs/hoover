@@ -1,4 +1,4 @@
-import { Plugin, Config, Lex, Point, Token, AltAction } from '@jsonic/jsonic-next';
+import { Plugin, Config, Lex, Point, Token, AltAction } from 'jsonic';
 type HooverOptions = {
     block: {
         [name: string]: {
