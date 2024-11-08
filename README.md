@@ -21,7 +21,6 @@ parser to support various extended string formats.
 ## Options
 * _lex_
   * _order_: `number` (default: 4500000) - order
-
 <!--END:options-->
 
 

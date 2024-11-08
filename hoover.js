@@ -1,7 +1,8 @@
 "use strict";
 /* Copyright (c) 2021-2023 Richard Rodger, MIT License */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Hoover = exports.parseToEnd = void 0;
+exports.Hoover = void 0;
+exports.parseToEnd = parseToEnd;
 /*
 support regexp
 indent removal
@@ -253,7 +254,6 @@ function parseToEnd(lex, hvpnt, block, cfg) {
         val,
     };
 }
-exports.parseToEnd = parseToEnd;
 Hoover.defaults = {
     block: {
     // // TODO: normalize with defaults
