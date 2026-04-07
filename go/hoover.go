@@ -7,6 +7,9 @@ import (
 	jsonic "github.com/jsonicjs/jsonic/go"
 )
 
+const Version = "0.1.0"
+
+
 // Block defines a hoover block configuration.
 type Block struct {
 	Start              StartSpec
