@@ -2,10 +2,9 @@
   "name": "@jsonic/hoover",
   "version": "0.8.0",
   "description": "This plugin allows the [Jsonic](https://jsonic.senecajs.org) JSON parser to support string hoovering (unquoted internal spaces).",
-  "main": "hoover.js",
+  "main": "dist/hoover.js",
   "type": "commonjs",
-  "browser": "hoover.min.js",
-  "types": "hoover.d.ts",
+  "types": "dist/hoover.d.ts",
   "homepage": "https://github.com/jsonicjs/hoover",
   "keywords": [
     "pattern",
@@ -20,33 +19,24 @@
     "url": "git://github.com/jsonicjs/hoover.git"
   },
   "scripts": {
-    "test": "jest --coverage",
-    "test-some": "jest -t",
-    "test-watch": "jest --coverage --watchAll",
-    "watch": "tsc -w -d",
-    "doc": "jsonic-doc",
-    "build": "tsc -d",
-    "prettier": "prettier --write --no-semi --single-quote *.ts test/*.js",
-    "clean": "rm -rf node_modules yarn.lock package-lock.json",
+    "test": "node --enable-source-maps --test \"dist-test/*.test.js\"",
+    "test-some": "node --enable-source-maps --test-name-pattern=\"$npm_config_pattern\" --test \"dist-test/*.test.js\"",
+    "watch": "tsc --build src test -w",
+    "build": "tsc --build src test",
+    "clean": "rm -rf dist dist-test node_modules yarn.lock package-lock.json",
     "reset": "npm run clean && npm i && npm run build && npm test",
     "repo-tag": "REPO_VERSION=`node -e \"console.log(require('./package').version)\"` && echo TAG: v$REPO_VERSION && git commit -a -m v$REPO_VERSION && git push && git tag v$REPO_VERSION && git push --tags;",
     "repo-publish": "npm run clean && npm i && npm run repo-publish-quick",
-    "repo-publish-quick": "npm run prettier && npm run build && npm run test && npm run doc && npm run repo-tag && npm publish --access public --registry https://registry.npmjs.org "
+    "repo-publish-quick": "npm run build && npm run test && npm run repo-tag && npm publish --access public --registry https://registry.npmjs.org "
   },
   "license": "MIT",
   "files": [
-    "*.ts",
-    "*.js",
-    "*.map",
+    "src",
+    "dist",
     "LICENSE"
   ],
   "devDependencies": {
-    "@jsonic/doc": "^0.0.9",
-    "@types/jest": "^30.0.0",
-    "es-jest": "^2.1.0",
-    "esbuild": "^0.25.11",
-    "jest": "^30.2.0",
-    "prettier": "^3.6.2",
+    "@types/node": "^25.5.2",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {

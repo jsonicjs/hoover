@@ -26,5 +26,8 @@ test/coverage.html
 coverage
 
 package-lock.json
+yarn.lock
 
-
+dist
+dist-test
+*.tsbuildinfo

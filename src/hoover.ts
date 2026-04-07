@@ -1,55 +1,73 @@
-/* Copyright (c) 2021-2023 Richard Rodger, MIT License */
+/* Copyright (c) 2021-2026 Richard Rodger, MIT License */
 
-/*
-support regexp
-indent removal
-more rule cases
-*/
-
-// TODO: line continuation ("\" at end) should be a feature of standard JSONIC strings
 
 import {
   Jsonic,
-  Rule,
-  RuleSpec,
   Plugin,
   Config,
   Options,
   Lex,
   Point,
-  Context,
   MakeLexMatcher,
-  makeStringMatcher,
   makePoint,
   Token,
   AltAction,
 } from 'jsonic'
 
+
+type Block = {
+  start?: {
+    fixed?: string | string[]
+    consume?: null | boolean | string[] // explicit false to turn off
+    rule?: {
+      parent?: {
+        include?: string[]
+        exclude?: string[]
+      }
+      current?: {
+        include?: string[]
+        exclude?: string[]
+      }
+      state?: string // '' = don't check, 'o'|'c'|'oc' = check; default 'o'
+    }
+  }
+  end?: {
+    fixed: string | string[]
+    consume?: null | boolean | string[] // explicit false to turn off
+  }
+  escapeChar?: string
+  escape?: {
+    [char: string]: string
+  }
+  allowUnknownEscape: boolean
+  preserveEscapeChar: boolean
+  trim: boolean
+}
+
+
 type HooverOptions = {
   block: {
-    [name: string]: {
-      start?: {
-        fixed?: string | string[]
-        consume?: null | boolean | string[] // explicit false to turn off
-      }
-      end?: {
-        fixed?: string | string[]
-        consume?: null | boolean | string[] // explicit false to turn off
-      }
-      escapeChar?: string
-      escape?: {
-        [char: string]: string
-      }
-      allowUnknownEscape: boolean
-      preserveEscapeChar: boolean
-      trim: boolean
-    }
+    [name: string]: Block
   }
   lex?: {
     order?: number
   }
   action?: AltAction
 }
+
+
+type ParseResult = {
+  done: boolean
+  val: string
+  bad?: Token
+}
+
+
+type StartResult = {
+  match: boolean
+  start?: string
+}
+
 
 const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
   const { entries } = jsonic.util
@@ -124,64 +142,66 @@ const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
   })
 }
 
+
 function matchStart(
   lex: Lex,
   hvpnt: Point,
-  block: any,
-): {
-  match: boolean
-  start?: string
-} {
+  block: Block,
+): StartResult {
   let src = lex.src
+  let rule = lex.ctx.rule
 
   let sI = hvpnt.sI // Current point in src
   let rI = hvpnt.rI // Current row
   let cI = hvpnt.cI // Current column
 
-  let start = block.start || {}
-  let rulespec = start.rule || {}
+  let start = block.start
+  let rulespec = null != start ? start.rule : null
   let matchRule: null | boolean = null
 
   // NOTE: Default rules:
   // - parent is pair,elem
   // - state is open
 
-  if (rulespec.parent) {
-    if (rulespec.parent.include) {
-      matchRule =
-        rulespec.parent.include.includes(lex.ctx.rule.parent.name) &&
-        (null === matchRule ? true : matchRule)
+  if (null != rulespec) {
+    if (rulespec.parent) {
+      if (rulespec.parent.include) {
+        matchRule =
+          rulespec.parent.include.includes(rule.parent.name) &&
+          (null === matchRule ? true : matchRule)
+      }
+      if (rulespec.parent.exclude) {
+        matchRule =
+          !rulespec.parent.exclude.includes(rule.parent.name) &&
+          (null === matchRule ? true : matchRule)
+      }
     }
-    if (rulespec.parent.exclude) {
-      matchRule =
-        !rulespec.parent.exclude.includes(lex.ctx.rule.parent.name) &&
-        (null === matchRule ? true : matchRule)
-    }
-  }
 
-  if (rulespec.current) {
-    if (rulespec.current.include) {
-      matchRule =
-        rulespec.current.include.includes(lex.ctx.rule.name) &&
-        (null === matchRule ? true : matchRule)
-    }
-    if (rulespec.current.exclude) {
-      matchRule =
-        !rulespec.current.exclude.includes(lex.ctx.rule.name) &&
-        (null === matchRule ? true : matchRule)
+    if (rulespec.current) {
+      if (rulespec.current.include) {
+        matchRule =
+          rulespec.current.include.includes(rule.name) &&
+          (null === matchRule ? true : matchRule)
+      }
+      if (rulespec.current.exclude) {
+        matchRule =
+          !rulespec.current.exclude.includes(rule.name) &&
+          (null === matchRule ? true : matchRule)
+      }
     }
   }
 
   // '': don't check, 'oc'|'c'|'o' check, default 'o'
-  let rulestate = '' === rulespec.state ? '' : rulespec.state || 'o'
+  let rulestate = null != rulespec && '' === rulespec.state ? '' :
+    (null != rulespec ? rulespec.state || 'o' : 'o')
   if (rulestate) {
     matchRule =
-      rulestate.includes(lex.ctx.rule.state) &&
+      rulestate.includes(rule.state) &&
       (null === matchRule ? true : matchRule)
   }
 
   let matchFixed = true
-  let fixed = start.fixed
+  let fixed = null != start ? start.fixed : null
   if (matchRule && null != fixed) {
     matchFixed = false
 
@@ -190,10 +210,10 @@ function matchStart(
       if (src.substring(hvpnt.sI).startsWith(fixed[fI])) {
         matchFixed = true
 
-        if (false !== start.consume) {
+        if (false !== start!.consume) {
           if (
-            !Array.isArray(start.consume) ||
-            start.consume.includes(fixed[fI])
+            !Array.isArray(start!.consume) ||
+            start!.consume.includes(fixed[fI])
           ) {
             let endI = hvpnt.sI + fixed[fI].length
             for (let fsI = hvpnt.sI; fsI < endI; fsI++) {
@@ -232,22 +252,19 @@ function matchStart(
   }
 }
 
+
 function parseToEnd(
   lex: Lex,
   hvpnt: Point,
-  block: any,
+  block: Block,
   cfg: Config,
-): {
-  done: boolean
-  val: string
-  bad?: Token
-} {
+): ParseResult {
   let valc = []
 
   let src = lex.src
 
-  let endspec = block.end
-  let fixed: string[] = endspec.fixed
+  let endspec = block.end!
+  let fixed: string[] = endspec.fixed as string[]
   fixed = 'string' === typeof fixed ? [fixed] : fixed
 
   let endchars = fixed.map((end) => end[0])
@@ -287,20 +304,10 @@ function parseToEnd(
         done = true
         break top
       }
-
-      // // regexp
-      // else if (tail.exec && (m = tail.exec(src.substring(sI)))) {
-      //   pI = 1 + m[0].length
-      //   done = true
-      //   break endseq
-      // }
-      // }
-
-      // break top
     }
 
     if (escapeChar === c) {
-      let replacement = block.escape[src[sI + 1]]
+      let replacement = block.escape![src[sI + 1]]
 
       if (null != replacement) {
         c = replacement
@@ -369,17 +376,6 @@ function parseToEnd(
 
 Hoover.defaults = {
   block: {
-    // // TODO: normalize with defaults
-    // "'''": {
-    //   open: "'''",
-    //   close: "'''",
-    //   indent: true,
-    //   trim: true,
-    //   doubleEscape: false,
-    //   lineReplace: null,
-    // },
-    // // TODO: FOR TEST
-    // // '<<': { close: '>>', indent: false }
   },
   lex: {
     order: 4.5e6, // before string, number
@@ -388,4 +384,4 @@ Hoover.defaults = {
 
 export { parseToEnd, Hoover }
 
-export type { HooverOptions }
+export type { Block, HooverOptions, ParseResult, StartResult }

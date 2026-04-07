@@ -1,9 +1,11 @@
-# @jsonic/hoover (JSONIC syntax plugin)
+# @jsonic/hoover
 
-This plugin allows the [Jsonic](https://jsonic.senecajs.org) JSON
-parser to support various extended string formats.
+A [Jsonic](https://github.com/jsonicjs/jsonic) syntax plugin that adds
+configurable block-delimited string parsing. Define custom string
+formats with start/end delimiters, escape sequences, and
+context-sensitive matching.
 
-
+Available for [TypeScript](doc/hoover-ts.md) and [Go](doc/hoover-go.md).
 
 [![npm version](https://img.shields.io/npm/v/@jsonic/hoover.svg)](https://npmjs.com/package/@jsonic/hoover)
 [![build](https://github.com/jsonicjs/hoover/actions/workflows/build.yml/badge.svg)](https://github.com/jsonicjs/hoover/actions/workflows/build.yml)
@@ -16,16 +18,40 @@ parser to support various extended string formats.
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------- |
 
 
+## Quick example
 
-<!--START:options-->
-## Options
-* _lex_
-  * _order_: `number` (default: 4500000) - order
-<!--END:options-->
+Parse triple-quoted strings that preserve internal whitespace and newlines:
+
+**TypeScript**
+```typescript
+const j = Jsonic.make().use(Hoover, {
+  block: {
+    triplequote: {
+      start: { fixed: "'''" },
+      end: { fixed: "'''" },
+    }
+  }
+})
+
+j("{a: '''hello world'''}") // { a: 'hello world' }
+```
+
+**Go**
+```go
+j := jsonic.Make()
+j.Use(hoover.Make(hoover.Options{
+  Block: map[string]*hoover.Block{
+    "triplequote": {
+      Start: hoover.StartSpec{Fixed: []string{"'''"}},
+      End:   hoover.EndSpec{Fixed: []string{"'''"}},
+    },
+  },
+}))
+
+j.Parse("{a: '''hello world'''}") // map[string]any{"a": "hello world"}
+```
 
 
+## License
 
-
-
-
-
+MIT. Copyright (c) Richard Rodger and other contributors.
