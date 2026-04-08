@@ -2,4 +2,4 @@ module github.com/jsonicjs/hoover/go
 
 go 1.24.7
 
-require github.com/jsonicjs/jsonic/go v0.1.11
+require github.com/jsonicjs/jsonic/go v0.1.12
