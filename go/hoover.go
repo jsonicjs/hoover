@@ -89,68 +89,82 @@ func Make(hopts Options) jsonic.Plugin {
 
 			tin := j.Token(block.Token)
 			block.tin = tin
+			tokenMap[block.Token] = tin
 
-			if _, exists := tokenMap[block.Token]; !exists {
-				localTin := tin
+			blocks = append(blocks, block)
+		}
+
+		makeHooverMatcher := func(cfg *jsonic.LexConfig, _opts *jsonic.Options) jsonic.LexMatcher {
+			return func(lex *jsonic.Lex, rule *jsonic.Rule) *jsonic.Token {
+				for _, block := range blocks {
+					pnt := lex.Cursor()
+
+					// When no start delimiter is defined (rule-context-only matching),
+					// defer to built-in matchers for chars they would handle:
+					// strings, numbers, fixed tokens, spaces, lines, comments.
+					// This emulates the TS behavior where hoover runs after those
+					// matchers in priority order.
+					if block.Start.Fixed == nil && pnt.SI < pnt.Len {
+						c := rune(lex.Src[pnt.SI])
+						if cfg.StringChars[c] || cfg.FixedTokens[string(c)] != 0 ||
+							cfg.SpaceChars[c] || cfg.LineChars[c] ||
+							isNumberStart(c) || isCommentStart(lex.Src, pnt.SI, cfg) {
+							continue
+						}
+					}
+
+					hvpnt := &jsonic.Point{
+						Len: pnt.Len,
+						SI:  pnt.SI,
+						RI:  pnt.RI,
+						CI:  pnt.CI,
+					}
+
+					sr := matchStart(lex, hvpnt, block)
+
+					if sr.match {
+						result := parseToEnd(lex, hvpnt, block, cfg)
+
+						if result.done {
+							src := lex.Src[pnt.SI:hvpnt.SI]
+							tkn := lex.Token(block.Token, block.tin, result.val, src)
+
+							pnt.SI = hvpnt.SI
+							pnt.RI = hvpnt.RI
+							pnt.CI = hvpnt.CI
+
+							return tkn
+						}
+					}
+				}
+				return nil
+			}
+		}
+
+		j.SetOptions(jsonic.Options{
+			Lex: &jsonic.LexOptions{
+				Match: map[string]*jsonic.MatchSpec{
+					"hoover": {
+						Order: 1500000,
+						Make:  makeHooverMatcher,
+					},
+				},
+			},
+		})
+
+		// Register rules after SetOptions so they survive the grammar rebuild.
+		for _, block := range blocks {
+			if _, exists := tokenMap[block.Token]; exists {
+				localTin := block.tin
 				j.Rule("val", func(rs *jsonic.RuleSpec) {
 					rs.PrependOpen(&jsonic.AltSpec{
 						S: [][]jsonic.Tin{{localTin}},
 						A: hopts.Action,
 					})
 				})
+				delete(tokenMap, block.Token)
 			}
-			tokenMap[block.Token] = tin
-
-			blocks = append(blocks, block)
 		}
-
-		cfg := j.Config()
-		matcher := func(lex *jsonic.Lex, rule *jsonic.Rule) *jsonic.Token {
-			for _, block := range blocks {
-				pnt := lex.Cursor()
-
-				// When no start delimiter is defined (rule-context-only matching),
-				// defer to built-in matchers for chars they would handle:
-				// strings, numbers, fixed tokens, spaces, lines, comments.
-				// This emulates the TS behavior where hoover runs after those
-				// matchers in priority order.
-				if block.Start.Fixed == nil && pnt.SI < pnt.Len {
-					c := rune(lex.Src[pnt.SI])
-					if cfg.StringChars[c] || cfg.FixedTokens[string(c)] != 0 ||
-						cfg.SpaceChars[c] || cfg.LineChars[c] ||
-						isNumberStart(c) || isCommentStart(lex.Src, pnt.SI, cfg) {
-						continue
-					}
-				}
-
-				hvpnt := &jsonic.Point{
-					Len: pnt.Len,
-					SI:  pnt.SI,
-					RI:  pnt.RI,
-					CI:  pnt.CI,
-				}
-
-				sr := matchStart(lex, hvpnt, block)
-
-				if sr.match {
-					result := parseToEnd(lex, hvpnt, block, cfg)
-
-					if result.done {
-						src := lex.Src[pnt.SI:hvpnt.SI]
-						tkn := lex.Token(block.Token, block.tin, result.val, src)
-
-						pnt.SI = hvpnt.SI
-						pnt.RI = hvpnt.RI
-						pnt.CI = hvpnt.CI
-
-						return tkn
-					}
-				}
-			}
-			return nil
-		}
-
-		j.AddMatcher("hoover", 1500000, matcher)
 	}
 }
 
