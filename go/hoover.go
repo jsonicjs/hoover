@@ -89,6 +89,16 @@ func Make(hopts Options) jsonic.Plugin {
 
 			tin := j.Token(block.Token)
 			block.tin = tin
+
+			if _, exists := tokenMap[block.Token]; !exists {
+				localTin := tin
+				j.Rule("val", func(rs *jsonic.RuleSpec) {
+					rs.PrependOpen(&jsonic.AltSpec{
+						S: [][]jsonic.Tin{{localTin}},
+						A: hopts.Action,
+					})
+				})
+			}
 			tokenMap[block.Token] = tin
 
 			blocks = append(blocks, block)
@@ -151,20 +161,6 @@ func Make(hopts Options) jsonic.Plugin {
 				},
 			},
 		})
-
-		// Register rules after SetOptions so they survive the grammar rebuild.
-		for _, block := range blocks {
-			if _, exists := tokenMap[block.Token]; exists {
-				localTin := block.tin
-				j.Rule("val", func(rs *jsonic.RuleSpec) {
-					rs.PrependOpen(&jsonic.AltSpec{
-						S: [][]jsonic.Tin{{localTin}},
-						A: hopts.Action,
-					})
-				})
-				delete(tokenMap, block.Token)
-			}
-		}
 	}
 }
 
