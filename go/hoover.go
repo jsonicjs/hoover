@@ -151,7 +151,7 @@ func Make(hopts Options) jsonic.Plugin {
 			}
 		}
 
-		j.MergeOptions(jsonic.Options{
+		j.SetOptions(jsonic.Options{
 			Lex: &jsonic.LexOptions{
 				Match: map[string]*jsonic.MatchSpec{
 					"hoover": {
