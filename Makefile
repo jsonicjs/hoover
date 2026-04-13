@@ -1,4 +1,4 @@
-.PHONY: all build test clean build-ts build-go test-ts test-go clean-ts clean-go publish-go tags-go tidy-go
+.PHONY: all build test clean build-ts build-go test-ts test-go clean-ts clean-go publish-go tags-go tidy-go reset
 
 all: build test
 
@@ -43,3 +43,9 @@ tidy-go:
 
 tags-go:
 	git tag -l 'go/v*' --sort=-version:refname
+
+reset:
+	npm run reset
+	cd go && go clean -cache
+	cd go && go build ./...
+	cd go && go test -v ./...
