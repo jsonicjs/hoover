@@ -13,8 +13,9 @@ describe('hoover', () => {
 
   test('triplequote', () => {
     const j = Jsonic.make().use(Hoover, {
-      block: {
-        triplequote: {
+      block: [
+        {
+          name: 'triplequote',
           start: {
             fixed: `'''`
           },
@@ -22,7 +23,7 @@ describe('hoover', () => {
             fixed: `'''`
           },
         }
-      }
+      ]
     })
 
     deepEqual(j(`{a:'''x'''}`), { a: 'x' })
@@ -57,8 +58,9 @@ describe('hoover', () => {
         lex: {
           order: 7.5e6 // before text, after string, number
         },
-        block: {
-          endofline: {
+        block: [
+          {
+            name: 'endofline',
             start: {
               rule: {
                 parent: {
@@ -78,7 +80,7 @@ describe('hoover', () => {
             },
             trim: true,
           }
-        }
+        ]
       })
 
     deepEqual(j(`{a:x x\n}`), { a: 'x x' })

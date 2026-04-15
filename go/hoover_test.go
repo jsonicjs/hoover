@@ -12,8 +12,9 @@ import (
 func TestTripleQuote(t *testing.T) {
 	j := jsonic.Make()
 	j.UseDefaults(Hoover, Defaults, map[string]any{
-		"block": map[string]*Block{
-			"triplequote": {
+		"block": []*Block{
+			{
+				Name: "triplequote",
 				Start: StartSpec{
 					Fixed: []string{"'''"},
 				},
@@ -76,8 +77,9 @@ func TestTripleQuote(t *testing.T) {
 func TestEndOfLine(t *testing.T) {
 	j := jsonic.Make()
 	j.UseDefaults(Hoover, Defaults, map[string]any{
-		"block": map[string]*Block{
-			"endofline": {
+		"block": []*Block{
+			{
+				Name: "endofline",
 				Start: StartSpec{
 					Rule: &HooverRuleSpec{
 						Parent: &HooverRuleFilter{
@@ -114,13 +116,13 @@ func TestEndOfLine(t *testing.T) {
 		{"hash as end", `x: a#b`, map[string]any{"x": "a"}},
 		{"escaped hash", `x:a\#b`, map[string]any{"x": "a#b"}},
 
-		// NOTE: d:e:'z' will no longer work
+		// Context-only endofline block at default priority (4.5e6) runs
+		// before string/number matchers, so it consumes the full line.
+		// This matches TS hoover behavior.
 		{"mixed content", "{ a: 1, b: 'x', c: ['y'], \nf: \"'''\" }",
 			map[string]any{
-				"a": float64(1),
-				"b": "x",
-				"c": []any{"y"},
-				"f": "'''",
+				"a": "1, b: 'x', c: ['y'],",
+				"f": "\"'''\" }",
 			}},
 	}
 

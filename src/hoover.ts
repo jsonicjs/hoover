@@ -16,6 +16,7 @@ import {
 
 
 type Block = {
+  name: string
   start?: {
     fixed?: string | string[]
     consume?: null | boolean | string[] // explicit false to turn off
@@ -35,20 +36,19 @@ type Block = {
     fixed: string | string[]
     consume?: null | boolean | string[] // explicit false to turn off
   }
+  token?: string
   escapeChar?: string
   escape?: {
     [char: string]: string
   }
-  allowUnknownEscape: boolean
-  preserveEscapeChar: boolean
-  trim: boolean
+  allowUnknownEscape?: boolean
+  preserveEscapeChar?: boolean
+  trim?: boolean
 }
 
 
 type HooverOptions = {
-  block: {
-    [name: string]: Block
-  }
+  block: Block[]
   lex?: {
     order?: number
   }
@@ -69,19 +69,25 @@ type StartResult = {
 }
 
 
-function buildBlocks(entries: Function, blockDefs: { [name: string]: Block }): any[] {
-  return entries(blockDefs).map((entry: any[]) => ({
-    allowUnknownEscape: true,
-    preserveEscapeChar: false,
-    token: '#HV',
-    ...entry[1],
-    name: entry[0],
-  }))
+function buildBlocks(blockDefs: Block[]): any[] {
+  return blockDefs.map((block) => {
+    const out: any = {
+      token: '#HV',
+      ...block,
+    }
+    if (null == block.allowUnknownEscape) {
+      out.allowUnknownEscape = true
+    }
+    if (null == block.preserveEscapeChar) {
+      out.preserveEscapeChar = false
+    }
+    return out
+  })
 }
 
 
 const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
-  let blocks = buildBlocks(jsonic.util.entries, options.block)
+  let blocks = buildBlocks(options.block)
 
   let tokenMap: any = {}
 
@@ -378,8 +384,7 @@ function parseToEnd(
 }
 
 Hoover.defaults = {
-  block: {
-  },
+  block: [],
   lex: {
     order: 4.5e6, // before string, number
   },

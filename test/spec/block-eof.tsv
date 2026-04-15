@@ -1,0 +1,3 @@
+input	expected
+x:hello	{"x":"hello"}
+x:one two	{"x":"one two"}

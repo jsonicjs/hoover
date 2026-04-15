@@ -1,0 +1,3 @@
+input	expected
+{a:hello\nb:world\n}	{"a":"hello","b":"world"}
+{a:hello\r\nb:world\r\n}	{"a":"hello","b":"world"}

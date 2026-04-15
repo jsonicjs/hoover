@@ -12,6 +12,7 @@ const Version = "0.1.3"
 
 // Block defines a hoover block configuration.
 type Block struct {
+	Name               string
 	Start              StartSpec
 	End                EndSpec
 	Token              string            // Token name, default "#HV"
@@ -21,7 +22,6 @@ type Block struct {
 	PreserveEscapeChar bool
 	Trim               bool
 
-	name string
 	tin  jsonic.Tin
 }
 
@@ -76,14 +76,13 @@ var Defaults = map[string]any{
 	},
 }
 
-func buildBlocks(blockDefs map[string]*Block) []*Block {
-	var blocks []*Block
-	for name, block := range blockDefs {
-		block.name = name
+func buildBlocks(blockDefs []*Block) []*Block {
+	blocks := make([]*Block, len(blockDefs))
+	for i, block := range blockDefs {
 		if block.Token == "" {
 			block.Token = "#HV"
 		}
-		blocks = append(blocks, block)
+		blocks[i] = block
 	}
 	return blocks
 }
@@ -95,7 +94,7 @@ func buildBlocks(blockDefs map[string]*Block) []*Block {
 //	    "block": map[string]*hoover.Block{ ... },
 //	})
 var Hoover jsonic.Plugin = func(j *jsonic.Jsonic, opts map[string]any) error {
-	blockDefs, _ := opts["block"].(map[string]*Block)
+	blockDefs, _ := opts["block"].([]*Block)
 	action, _ := opts["action"].(jsonic.AltAction)
 
 	blocks := buildBlocks(blockDefs)
@@ -122,20 +121,6 @@ var Hoover jsonic.Plugin = func(j *jsonic.Jsonic, opts map[string]any) error {
 		hooverMatcher = func(lex *jsonic.Lex, rule *jsonic.Rule) *jsonic.Token {
 			for _, block := range blocks {
 				pnt := lex.Cursor()
-
-				// When no start delimiter is defined (rule-context-only matching),
-				// defer to built-in matchers for chars they would handle:
-				// strings, numbers, fixed tokens, spaces, lines, comments.
-				// This emulates the TS behavior where hoover runs after those
-				// matchers in priority order.
-				if block.Start.Fixed == nil && pnt.SI < pnt.Len {
-					c := rune(lex.Src[pnt.SI])
-					if cfg.StringChars[c] || cfg.FixedTokens[string(c)] != 0 ||
-						cfg.SpaceChars[c] || cfg.LineChars[c] ||
-						isNumberStart(c) || isCommentStart(lex.Src, pnt.SI, cfg) {
-						continue
-					}
-				}
 
 				hvpnt := &jsonic.Point{
 					Len: pnt.Len,
@@ -232,14 +217,11 @@ func matchStart(
 		}
 	}
 
-	// Rule state check: default "o" (open)
+	// Rule state check: default "o" (open).
+	// Matches TS behavior where absent state field defaults to "o".
 	rulestate := "o"
-	if rulespec != nil {
-		if rulespec.State == "" {
-			rulestate = ""
-		} else {
-			rulestate = rulespec.State
-		}
+	if rulespec != nil && rulespec.State != "" {
+		rulestate = rulespec.State
 	}
 	if rulestate != "" {
 		if rule == nil {
@@ -494,24 +476,6 @@ func containsChar(s string, sub string) bool {
 	return false
 }
 
-func isNumberStart(c rune) bool {
-	return (c >= '0' && c <= '9') || c == '-' || c == '+'
-}
-
-func isCommentStart(src string, sI int, cfg *jsonic.LexConfig) bool {
-	rest := src[sI:]
-	for _, cl := range cfg.CommentLine {
-		if len(rest) >= len(cl) && rest[:len(cl)] == cl {
-			return true
-		}
-	}
-	for _, cb := range cfg.CommentBlock {
-		if len(rest) >= len(cb[0]) && rest[:len(cb[0])] == cb[0] {
-			return true
-		}
-	}
-	return false
-}
 
 func trimString(s string) string {
 	start := 0
