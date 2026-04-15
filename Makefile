@@ -32,7 +32,8 @@ clean-go:
 publish-go: test-go
 	@test -n "$(V)" || (echo "Usage: make publish-go V=x.y.z" && exit 1)
 	sed -i '' 's/^const Version = ".*"/const Version = "$(V)"/' go/hoover.go
-	git add go/hoover.go
+	sed -i '' 's/^Version: .*/Version: $(V)/' go/README.md
+	git add go/hoover.go go/README.md
 	git commit -m "go: v$(V)"
 	git tag go/v$(V)
 	git push origin main go/v$(V)
