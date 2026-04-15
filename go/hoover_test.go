@@ -11,8 +11,8 @@ import (
 
 func TestTripleQuote(t *testing.T) {
 	j := jsonic.Make()
-	j.Use(Make(Options{
-		Block: map[string]*Block{
+	j.UseDefaults(Hoover, Defaults, map[string]any{
+		"block": map[string]*Block{
 			"triplequote": {
 				Start: StartSpec{
 					Fixed: []string{"'''"},
@@ -22,7 +22,7 @@ func TestTripleQuote(t *testing.T) {
 				},
 			},
 		},
-	}))
+	})
 
 	tests := []struct {
 		name string
@@ -75,8 +75,8 @@ func TestTripleQuote(t *testing.T) {
 
 func TestEndOfLine(t *testing.T) {
 	j := jsonic.Make()
-	j.Use(Make(Options{
-		Block: map[string]*Block{
+	j.UseDefaults(Hoover, Defaults, map[string]any{
+		"block": map[string]*Block{
 			"endofline": {
 				Start: StartSpec{
 					Rule: &HooverRuleSpec{
@@ -98,7 +98,7 @@ func TestEndOfLine(t *testing.T) {
 				Trim: true,
 			},
 		},
-	}))
+	})
 
 	tests := []struct {
 		name string

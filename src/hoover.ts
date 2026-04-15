@@ -69,16 +69,19 @@ type StartResult = {
 }
 
 
-const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
-  const { entries } = jsonic.util
-
-  let blocks = entries(options.block).map((entry: any[]) => ({
+function buildBlocks(entries: Function, blockDefs: { [name: string]: Block }): any[] {
+  return entries(blockDefs).map((entry: any[]) => ({
     allowUnknownEscape: true,
     preserveEscapeChar: false,
     token: '#HV',
     ...entry[1],
     name: entry[0],
   }))
+}
+
+
+const Hoover: Plugin = (jsonic: Jsonic, options: HooverOptions) => {
+  let blocks = buildBlocks(jsonic.util.entries, options.block)
 
   let tokenMap: any = {}
 
