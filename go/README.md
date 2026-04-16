@@ -1,6 +1,6 @@
 # hoover (Go)
 
-Version: 0.1.4
+Version: 0.1.5
 
 A Go port of [@jsonic/hoover](https://github.com/jsonicjs/hoover), a
 [Jsonic](https://github.com/jsonicjs/jsonic) syntax plugin that adds

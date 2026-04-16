@@ -7,7 +7,7 @@ import (
 	jsonic "github.com/jsonicjs/jsonic/go"
 )
 
-const Version = "0.1.4"
+const Version = "0.1.5"
 
 
 // Block defines a hoover block configuration.
