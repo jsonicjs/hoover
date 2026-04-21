@@ -106,7 +106,7 @@ var Hoover jsonic.Plugin = func(j *jsonic.Jsonic, opts map[string]any) error {
 
 		if _, exists := tokenMap[block.Token]; !exists {
 			localTin := tin
-			j.Rule("val", func(rs *jsonic.RuleSpec) {
+			j.Rule("val", func(rs *jsonic.RuleSpec, _ *jsonic.Parser) {
 				rs.PrependOpen(&jsonic.AltSpec{
 					S: [][]jsonic.Tin{{localTin}},
 					A: action,
